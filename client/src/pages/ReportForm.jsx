@@ -41,7 +41,12 @@ export default function ReportForm() {
         setGeoLoading(false);
       },
       (err) => {
-        setGeoError('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
+        const messages = {
+          1: '위치 권한이 거부되었습니다. 설정에서 위치 권한을 허용해주세요.\n(iOS Chrome: 설정 → Chrome → 위치 → 앱 사용 중 허용)',
+          2: '위치 정보를 가져올 수 없습니다. GPS 신호를 확인해주세요.',
+          3: '위치 요청 시간이 초과되었습니다. 다시 시도해주세요.',
+        };
+        setGeoError(messages[err.code] || `위치 오류 (코드: ${err.code})`);
         setGeoLoading(false);
       },
       { enableHighAccuracy: true, timeout: 15000 }
