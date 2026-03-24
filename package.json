@@ -1,0 +1,25 @@
+{
+  "name": "illegal-occupation-report",
+  "version": "1.0.0",
+  "description": "Civic reporting system for illegal occupation of valleys, streams, and riversides",
+  "private": true,
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:client": "cd client && npx vite --host",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "cd client && npx vite build",
+    "start": "NODE_ENV=production node server/index.js",
+    "init-db": "node server/db/init.js",
+    "test": "node --test server/__tests__/*.test.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "concurrently": "^9.0.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^10.0.0",
+    "bcryptjs": "^2.4.3"
+  }
+}
