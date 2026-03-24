@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
-const { getDb } = require('../db/connection');
+const { queryGet, queryAll, queryRun } = require('../db/query');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
@@ -42,28 +42,19 @@ router.post('/', upload.single('photo'), (req, res) => {
 
     const photo_path = `/uploads/${req.file.filename}`;
 
-    const db = getDb();
-    const stmt = db.prepare(`
-      INSERT INTO reports (photo_path, latitude, longitude, category, description, reporter_name, reporter_contact)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const result = stmt.run(
-      photo_path,
-      parseFloat(latitude),
-      parseFloat(longitude),
-      category,
-      description || null,
-      reporter_name || null,
-      reporter_contact || null
+    const result = queryRun(
+      `INSERT INTO reports (photo_path, latitude, longitude, category, description, reporter_name, reporter_contact)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [photo_path, parseFloat(latitude), parseFloat(longitude), category,
+       description || null, reporter_name || null, reporter_contact || null]
     );
 
-    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(result.lastInsertRowid);
+    const report = queryGet('SELECT * FROM reports WHERE id = ?', [result.lastInsertRowid]);
 
     res.status(201).json({ report });
   } catch (err) {
     console.error('Create report error:', err);
-    if (err.message && err.message.includes('CHECK constraint failed')) {
+    if (err.message && err.message.includes('CHECK constraint')) {
       return res.status(400).json({ error: 'Invalid category value' });
     }
     res.status(500).json({ error: 'Internal server error' });
@@ -73,16 +64,7 @@ router.post('/', upload.single('photo'), (req, res) => {
 // GET /api/reports — list reports with filtering and pagination
 router.get('/', (req, res) => {
   try {
-    const {
-      status,
-      category,
-      page: pageParam,
-      limit: limitParam,
-      sw_lat,
-      sw_lng,
-      ne_lat,
-      ne_lng,
-    } = req.query;
+    const { status, category, page: pageParam, limit: limitParam, sw_lat, sw_lng, ne_lat, ne_lng } = req.query;
 
     const page = Math.max(1, parseInt(pageParam, 10) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(limitParam, 10) || 50));
@@ -108,15 +90,14 @@ router.get('/', (req, res) => {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const db = getDb();
-
-    const totalRow = db.prepare(`SELECT COUNT(*) as count FROM reports ${where}`).get(...params);
+    const totalRow = queryGet(`SELECT COUNT(*) as count FROM reports ${where}`, params);
     const total = totalRow.count;
     const totalPages = Math.ceil(total / limit);
 
-    const reports = db.prepare(
-      `SELECT * FROM reports ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`
-    ).all(...params, limit, offset);
+    const reports = queryAll(
+      `SELECT * FROM reports ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
 
     res.json({ reports, total, page, totalPages });
   } catch (err) {
@@ -128,20 +109,20 @@ router.get('/', (req, res) => {
 // GET /api/reports/:id — single report with case_actions
 router.get('/:id', (req, res) => {
   try {
-    const db = getDb();
-    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+    const report = queryGet('SELECT * FROM reports WHERE id = ?', [req.params.id]);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    const actions = db.prepare(`
-      SELECT ca.*, u.username AS action_by_username
-      FROM case_actions ca
-      LEFT JOIN users u ON u.id = ca.action_by
-      WHERE ca.report_id = ?
-      ORDER BY ca.created_at DESC
-    `).all(req.params.id);
+    const actions = queryAll(
+      `SELECT ca.*, u.username AS action_by_username
+       FROM case_actions ca
+       LEFT JOIN users u ON u.id = ca.action_by
+       WHERE ca.report_id = ?
+       ORDER BY ca.created_at DESC`,
+      [req.params.id]
+    );
 
     res.json({ report, actions });
   } catch (err) {
@@ -159,8 +140,7 @@ router.patch('/:id', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'status is required' });
     }
 
-    const db = getDb();
-    const report = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+    const report = queryGet('SELECT * FROM reports WHERE id = ?', [req.params.id]);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
@@ -168,31 +148,17 @@ router.patch('/:id', requireAuth, (req, res) => {
 
     const oldStatus = report.status;
 
-    const updateReport = db.prepare(
-      "UPDATE reports SET status = ?, updated_at = datetime('now') WHERE id = ?"
-    );
+    queryRun("UPDATE reports SET status = ?, updated_at = datetime('now') WHERE id = ?",
+      [status, req.params.id]);
 
-    const insertAction = db.prepare(
-      'INSERT INTO case_actions (report_id, action_by, action, detail) VALUES (?, ?, ?, ?)'
-    );
+    queryRun('INSERT INTO case_actions (report_id, action_by, action, detail) VALUES (?, ?, ?, ?)',
+      [req.params.id, req.user.id, 'status_change', `Status changed from ${oldStatus} to ${status}`]);
 
-    const txn = db.transaction(() => {
-      updateReport.run(status, req.params.id);
-      insertAction.run(
-        req.params.id,
-        req.user.id,
-        'status_change',
-        `Status changed from ${oldStatus} to ${status}`
-      );
-    });
-
-    txn();
-
-    const updated = db.prepare('SELECT * FROM reports WHERE id = ?').get(req.params.id);
+    const updated = queryGet('SELECT * FROM reports WHERE id = ?', [req.params.id]);
     res.json({ report: updated });
   } catch (err) {
     console.error('Update report error:', err);
-    if (err.message && err.message.includes('CHECK constraint failed')) {
+    if (err.message && err.message.includes('CHECK constraint')) {
       return res.status(400).json({ error: 'Invalid status value' });
     }
     res.status(500).json({ error: 'Internal server error' });
@@ -208,23 +174,23 @@ router.post('/:id/actions', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'action is required' });
     }
 
-    const db = getDb();
-    const report = db.prepare('SELECT id FROM reports WHERE id = ?').get(req.params.id);
+    const report = queryGet('SELECT id FROM reports WHERE id = ?', [req.params.id]);
 
     if (!report) {
       return res.status(404).json({ error: 'Report not found' });
     }
 
-    const result = db.prepare(
-      'INSERT INTO case_actions (report_id, action_by, action, detail) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, req.user.id, action, detail || null);
+    const result = queryRun(
+      'INSERT INTO case_actions (report_id, action_by, action, detail) VALUES (?, ?, ?, ?)',
+      [req.params.id, req.user.id, action, detail || null]
+    );
 
-    const created = db.prepare('SELECT * FROM case_actions WHERE id = ?').get(result.lastInsertRowid);
+    const created = queryGet('SELECT * FROM case_actions WHERE id = ?', [result.lastInsertRowid]);
 
     res.status(201).json({ action: created });
   } catch (err) {
     console.error('Create action error:', err);
-    if (err.message && err.message.includes('CHECK constraint failed')) {
+    if (err.message && err.message.includes('CHECK constraint')) {
       return res.status(400).json({ error: 'Invalid action value. Must be: status_change, note, or assignment' });
     }
     res.status(500).json({ error: 'Internal server error' });
