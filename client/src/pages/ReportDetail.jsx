@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
@@ -31,6 +31,15 @@ const CATEGORY_LABELS = {
 };
 
 const STATUS_OPTIONS = ['pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
+
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
 
 export default function ReportDetail() {
   const { id } = useParams();
@@ -168,6 +177,7 @@ export default function ReportDetail() {
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              <MapResizer />
               <Marker position={[report.latitude, report.longitude]} />
             </MapContainer>
           </div>

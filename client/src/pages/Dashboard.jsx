@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
 import 'leaflet/dist/leaflet.css';
@@ -31,6 +31,16 @@ const CATEGORY_LABELS = {
 
 const STATUS_OPTIONS = ['all', 'pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
 const CATEGORY_OPTIONS = ['all', 'encroachment', 'illegal_structure', 'pollution', 'dumping', 'other'];
+
+// Fix Safari: force map to recalculate size after mount
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
 
 function MapMarkers({ reports }) {
   const navigate = useNavigate();
@@ -232,6 +242,7 @@ export default function Dashboard() {
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
+            <MapResizer />
             <BoundsLoader onBoundsChange={handleBoundsChange} />
             <MapMarkers reports={mapReports} />
           </MapContainer>

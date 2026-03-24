@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import exifr from 'exifr';
 import { apiUrl } from '../api';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -20,6 +20,16 @@ const CATEGORIES = [
   { value: 'dumping', label: '불법 투기' },
   { value: 'other', label: '기타' },
 ];
+
+// Fix Safari: force map to recalculate size after mount
+function MapResizer() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
+}
 
 function LocationPicker({ position, onSelect }) {
   useMapEvents({
@@ -229,6 +239,7 @@ export default function ReportForm() {
                   zoom={7}
                   style={{ height: '100%', width: '100%' }}
                 >
+                  <MapResizer />
                   <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
