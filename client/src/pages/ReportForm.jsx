@@ -70,8 +70,7 @@ export default function ReportForm() {
       // no EXIF
     }
 
-    // Auto-try browser geolocation
-    getLocation();
+    // Don't auto-trigger — some browsers block geolocation without user gesture
   };
 
   const handleSubmit = async (e) => {
@@ -187,9 +186,10 @@ export default function ReportForm() {
             </div>
           )}
 
-          {/* Location button */}
-          {!gps && photo && (
+          {/* Location button — always show when no GPS */}
+          {!gps && (
             <div className="form-group">
+              <label className="form-label">위치 정보 *</label>
               {geoLoading ? (
                 <div className="gps-info">현재 위치를 확인하고 있습니다...</div>
               ) : (
@@ -198,6 +198,9 @@ export default function ReportForm() {
                   <button type="button" className="btn btn-primary btn-block" onClick={getLocation}>
                     📍 현재 위치 사용
                   </button>
+                  <p style={{ fontSize: '0.8rem', color: '#757575', marginTop: 6 }}>
+                    버튼을 누르면 위치 권한을 요청합니다
+                  </p>
                 </>
               )}
             </div>
