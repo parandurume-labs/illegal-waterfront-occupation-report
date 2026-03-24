@@ -1,18 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
-import 'leaflet/dist/leaflet.css';
 
-// Fix default marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
 
 const STATUS_LABELS = {
   pending: '접수',
@@ -31,15 +23,6 @@ const CATEGORY_LABELS = {
 };
 
 const STATUS_OPTIONS = ['pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
-
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
-}
 
 export default function ReportDetail() {
   const { id } = useParams();
@@ -167,19 +150,16 @@ export default function ReportDetail() {
         {/* Map */}
         {report.latitude && report.longitude && (
           <div className="map-container map-container-detail">
-            <MapContainer
-              center={[report.latitude, report.longitude]}
-              zoom={15}
-              style={{ height: '100%', width: '100%' }}
-              scrollWheelZoom={false}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapResizer />
-              <Marker position={[report.latitude, report.longitude]} />
-            </MapContainer>
+            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+              <GoogleMap
+                mapContainerStyle={{ height: '100%', width: '100%' }}
+                center={{ lat: report.latitude, lng: report.longitude }}
+                zoom={15}
+                options={{ gestureHandling: 'none', scrollwheel: false }}
+              >
+                <Marker position={{ lat: report.latitude, lng: report.longitude }} />
+              </GoogleMap>
+            </LoadScript>
           </div>
         )}
 

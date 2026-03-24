@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
+import { GoogleMap, LoadScript, Circle } from '@react-google-maps/api';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
-import 'leaflet/dist/leaflet.css';
+
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
 
 const STATUS_COLORS = {
   pending: '#ff9800',
@@ -32,82 +33,6 @@ const CATEGORY_LABELS = {
 const STATUS_OPTIONS = ['all', 'pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
 const CATEGORY_OPTIONS = ['all', 'encroachment', 'illegal_structure', 'pollution', 'dumping', 'other'];
 
-// Fix Safari: force map to recalculate size after mount
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
-}
-
-function MapMarkers({ reports }) {
-  const navigate = useNavigate();
-
-  return reports.map((r) => (
-    <CircleMarker
-      key={r.id}
-      center={[r.latitude, r.longitude]}
-      radius={8}
-      pathOptions={{
-        color: STATUS_COLORS[r.status] || '#999',
-        fillColor: STATUS_COLORS[r.status] || '#999',
-        fillOpacity: 0.8,
-      }}
-      eventHandlers={{
-        click: () => navigate(`/reports/${r.id}`),
-      }}
-    >
-      <Popup>
-        <strong>{CATEGORY_LABELS[r.category] || r.category}</strong>
-        <br />
-        <span className={`status-badge status-${r.status}`}>
-          {STATUS_LABELS[r.status] || r.status}
-        </span>
-        <br />
-        <Link to={`/reports/${r.id}`}>상세보기</Link>
-      </Popup>
-    </CircleMarker>
-  ));
-}
-
-function BoundsLoader({ onBoundsChange }) {
-  const map = useMapEvents({
-    moveend: () => {
-      const b = map.getBounds();
-      onBoundsChange({
-        south: b.getSouth(),
-        west: b.getWest(),
-        north: b.getNorth(),
-        east: b.getEast(),
-      });
-    },
-    load: () => {
-      const b = map.getBounds();
-      onBoundsChange({
-        south: b.getSouth(),
-        west: b.getWest(),
-        north: b.getNorth(),
-        east: b.getEast(),
-      });
-    },
-  });
-
-  // Fire on initial mount
-  useEffect(() => {
-    const b = map.getBounds();
-    onBoundsChange({
-      south: b.getSouth(),
-      west: b.getWest(),
-      north: b.getNorth(),
-      east: b.getEast(),
-    });
-  }, [map, onBoundsChange]);
-
-  return null;
-}
-
 export default function Dashboard() {
   const { user, token, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -121,6 +46,7 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [listLoading, setListLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [mapRef, setMapRef] = useState(null);
 
   // Auth redirect
   useEffect(() => {
@@ -233,19 +159,43 @@ export default function Dashboard() {
       <div className="card">
         <h2 className="section-title">신고 지도</h2>
         <div className="map-container map-container-dashboard">
-          <MapContainer
-            center={[36.5, 127.0]}
-            zoom={7}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapResizer />
-            <BoundsLoader onBoundsChange={handleBoundsChange} />
-            <MapMarkers reports={mapReports} />
-          </MapContainer>
+          <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+            <GoogleMap
+              mapContainerStyle={{ height: '100%', width: '100%' }}
+              center={{ lat: 36.5, lng: 127.0 }}
+              zoom={7}
+              onLoad={(map) => setMapRef(map)}
+              onIdle={() => {
+                if (mapRef) {
+                  const b = mapRef.getBounds();
+                  if (b) {
+                    handleBoundsChange({
+                      south: b.getSouthWest().lat(),
+                      west: b.getSouthWest().lng(),
+                      north: b.getNorthEast().lat(),
+                      east: b.getNorthEast().lng(),
+                    });
+                  }
+                }
+              }}
+            >
+              {mapReports.map((r) => (
+                <Circle
+                  key={r.id}
+                  center={{ lat: r.latitude, lng: r.longitude }}
+                  radius={500}
+                  options={{
+                    fillColor: STATUS_COLORS[r.status] || '#999',
+                    fillOpacity: 0.8,
+                    strokeColor: STATUS_COLORS[r.status] || '#999',
+                    strokeWeight: 1,
+                    clickable: true,
+                  }}
+                  onClick={() => navigate(`/reports/${r.id}`)}
+                />
+              ))}
+            </GoogleMap>
+          </LoadScript>
         </div>
         <div className="map-legend">
           {Object.entries(STATUS_LABELS).map(([key, label]) => (

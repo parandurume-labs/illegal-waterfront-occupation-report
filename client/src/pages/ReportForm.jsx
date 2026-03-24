@@ -1,17 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import exifr from 'exifr';
 import { apiUrl } from '../api';
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 
-// Fix default marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
 
 const CATEGORIES = [
   { value: 'encroachment', label: '하천 점유' },
@@ -20,25 +12,6 @@ const CATEGORIES = [
   { value: 'dumping', label: '불법 투기' },
   { value: 'other', label: '기타' },
 ];
-
-// Fix Safari: force map to recalculate size after mount
-function MapResizer() {
-  const map = useMap();
-  useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
-}
-
-function LocationPicker({ position, onSelect }) {
-  useMapEvents({
-    click(e) {
-      onSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
-    },
-  });
-  return position ? <Marker position={[position.lat, position.lng]} /> : null;
-}
 
 export default function ReportForm() {
   const [photo, setPhoto] = useState(null);
@@ -234,18 +207,16 @@ export default function ReportForm() {
                 위치를 자동으로 가져올 수 없습니다. 지도에서 위치를 선택해주세요.
               </label>
               <div className="map-container map-container-small">
-                <MapContainer
-                  center={[36.5, 127.0]}
-                  zoom={7}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <MapResizer />
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
-                  <LocationPicker position={gps} onSelect={handleMapSelect} />
-                </MapContainer>
+                <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+                  <GoogleMap
+                    mapContainerStyle={{ height: '100%', width: '100%' }}
+                    center={{ lat: 36.5, lng: 127.0 }}
+                    zoom={7}
+                    onClick={(e) => handleMapSelect({ lat: e.latLng.lat(), lng: e.latLng.lng() })}
+                  >
+                    {gps && <Marker position={{ lat: gps.lat, lng: gps.lng }} />}
+                  </GoogleMap>
+                </LoadScript>
               </div>
             </div>
           )}
