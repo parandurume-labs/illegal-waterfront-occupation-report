@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, LoadScript, Circle } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Circle } from '@react-google-maps/api';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
 
@@ -46,6 +46,7 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [listLoading, setListLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
   const [mapRef, setMapRef] = useState(null);
 
   // Auth redirect
@@ -159,7 +160,7 @@ export default function Dashboard() {
       <div className="card">
         <h2 className="section-title">신고 지도</h2>
         <div className="map-container map-container-dashboard">
-          <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+          {isLoaded ? (
             <GoogleMap
               mapContainerStyle={{ height: '100%', width: '100%' }}
               center={{ lat: 36.5, lng: 127.0 }}
@@ -195,7 +196,7 @@ export default function Dashboard() {
                 />
               ))}
             </GoogleMap>
-          </LoadScript>
+          ) : <div className="loading">지도 로딩 중...</div>}
         </div>
         <div className="map-legend">
           {Object.entries(STATUS_LABELS).map(([key, label]) => (

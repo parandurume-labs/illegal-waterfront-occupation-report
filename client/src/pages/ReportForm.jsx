@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import exifr from 'exifr';
 import { apiUrl } from '../api';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
 
@@ -14,6 +14,7 @@ const CATEGORIES = [
 ];
 
 export default function ReportForm() {
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [gps, setGps] = useState(null);
@@ -207,7 +208,7 @@ export default function ReportForm() {
                 위치를 자동으로 가져올 수 없습니다. 지도에서 위치를 선택해주세요.
               </label>
               <div className="map-container map-container-small">
-                <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+                {isLoaded ? (
                   <GoogleMap
                     mapContainerStyle={{ height: '100%', width: '100%' }}
                     center={{ lat: 36.5, lng: 127.0 }}
@@ -216,7 +217,7 @@ export default function ReportForm() {
                   >
                     {gps && <Marker position={{ lat: gps.lat, lng: gps.lng }} />}
                   </GoogleMap>
-                </LoadScript>
+                ) : <div className="loading">지도 로딩 중...</div>}
               </div>
             </div>
           )}

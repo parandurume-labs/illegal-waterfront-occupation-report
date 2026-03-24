@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
 
@@ -25,6 +25,7 @@ const CATEGORY_LABELS = {
 const STATUS_OPTIONS = ['pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
 
 export default function ReportDetail() {
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
   const { id } = useParams();
   const { user, token } = useAuth();
 
@@ -150,7 +151,7 @@ export default function ReportDetail() {
         {/* Map */}
         {report.latitude && report.longitude && (
           <div className="map-container map-container-detail">
-            <LoadScript googleMapsApiKey={GOOGLE_MAPS_API_KEY}>
+            {isLoaded ? (
               <GoogleMap
                 mapContainerStyle={{ height: '100%', width: '100%' }}
                 center={{ lat: report.latitude, lng: report.longitude }}
@@ -159,7 +160,7 @@ export default function ReportDetail() {
               >
                 <Marker position={{ lat: report.latitude, lng: report.longitude }} />
               </GoogleMap>
-            </LoadScript>
+            ) : <div className="loading">지도 로딩 중...</div>}
           </div>
         )}
 
