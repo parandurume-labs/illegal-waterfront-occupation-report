@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
+import { MapView } from '../components/MapEmbed';
 
 const STATUS_LABELS = {
   pending: '접수',
@@ -25,7 +23,6 @@ const CATEGORY_LABELS = {
 const STATUS_OPTIONS = ['pending', 'reviewing', 'confirmed', 'resolved', 'dismissed'];
 
 export default function ReportDetail() {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
   const { id } = useParams();
   const { user, token } = useAuth();
 
@@ -151,16 +148,7 @@ export default function ReportDetail() {
         {/* Map */}
         {report.latitude && report.longitude && (
           <div className="map-container map-container-detail">
-            {isLoaded ? (
-              <GoogleMap
-                mapContainerStyle={{ height: '100%', width: '100%' }}
-                center={{ lat: report.latitude, lng: report.longitude }}
-                zoom={15}
-                options={{ gestureHandling: 'none', scrollwheel: false }}
-              >
-                <Marker position={{ lat: report.latitude, lng: report.longitude }} />
-              </GoogleMap>
-            ) : <div className="loading">지도 로딩 중...</div>}
+            <MapView lat={report.latitude} lng={report.longitude} zoom={15} />
           </div>
         )}
 

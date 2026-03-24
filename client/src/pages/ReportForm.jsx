@@ -1,9 +1,7 @@
 import { useState, useRef } from 'react';
 import exifr from 'exifr';
 import { apiUrl } from '../api';
-import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
-
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
+import { MapView } from '../components/MapEmbed';
 
 const CATEGORIES = [
   { value: 'encroachment', label: '하천 점유' },
@@ -14,12 +12,12 @@ const CATEGORIES = [
 ];
 
 export default function ReportForm() {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [gps, setGps] = useState(null);
-  const [gpsSource, setGpsSource] = useState(null); // 'exif' | 'map'
-  const [showMap, setShowMap] = useState(false);
+  const [gpsSource, setGpsSource] = useState(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState(null);
   const [category, setCategory] = useState('encroachment');
   const [description, setDescription] = useState('');
   const [reporterName, setReporterName] = useState('');
@@ -29,26 +27,24 @@ export default function ReportForm() {
   const [error, setError] = useState(null);
   const fileRef = useRef(null);
 
-  const [geoLoading, setGeoLoading] = useState(false);
-
-  const tryBrowserGeolocation = () => {
+  const getLocation = () => {
     if (!navigator.geolocation) {
-      setShowMap(true);
+      setGeoError('이 기기에서 위치 서비스를 지원하지 않습니다.');
       return;
     }
     setGeoLoading(true);
+    setGeoError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setGpsSource('browser');
         setGeoLoading(false);
       },
-      () => {
-        // User denied or error — show map picker
-        setShowMap(true);
+      (err) => {
+        setGeoError('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.');
         setGeoLoading(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, timeout: 15000 }
     );
   };
 
@@ -60,10 +56,9 @@ export default function ReportForm() {
     setPhotoPreview(URL.createObjectURL(file));
     setGps(null);
     setGpsSource(null);
-    setShowMap(false);
-    setGeoLoading(false);
+    setGeoError(null);
 
-    // 1. Try EXIF GPS
+    // Try EXIF GPS first
     try {
       const exif = await exifr.gps(file);
       if (exif && exif.latitude != null && exif.longitude != null) {
@@ -72,16 +67,11 @@ export default function ReportForm() {
         return;
       }
     } catch {
-      // no EXIF GPS
+      // no EXIF
     }
 
-    // 2. Try browser Geolocation API (handles iOS Safari stripping EXIF)
-    tryBrowserGeolocation();
-  };
-
-  const handleMapSelect = (pos) => {
-    setGps(pos);
-    setGpsSource('map');
+    // Auto-try browser geolocation
+    getLocation();
   };
 
   const handleSubmit = async (e) => {
@@ -93,7 +83,7 @@ export default function ReportForm() {
       return;
     }
     if (!gps) {
-      setError('위치 정보가 필요합니다. 지도에서 위치를 선택해주세요.');
+      setError('위치 정보가 필요합니다. "현재 위치 사용" 버튼을 눌러주세요.');
       return;
     }
 
@@ -143,7 +133,7 @@ export default function ReportForm() {
               setPhotoPreview(null);
               setGps(null);
               setGpsSource(null);
-              setShowMap(false);
+              setGeoError(null);
               setDescription('');
               setReporterName('');
               setReporterContact('');
@@ -188,37 +178,28 @@ export default function ReportForm() {
                 <span>위도: {gps.lat.toFixed(6)}</span>
                 <span>경도: {gps.lng.toFixed(6)}</span>
                 <span className="gps-source">
-                  ({gpsSource === 'exif' ? '사진에서 자동 추출' : gpsSource === 'browser' ? '현재 위치 자동 감지' : '지도에서 선택'})
+                  ({gpsSource === 'exif' ? '사진에서 자동 추출' : '현재 위치 자동 감지'})
                 </span>
               </div>
-            </div>
-          )}
-
-          {/* Geolocation loading */}
-          {geoLoading && (
-            <div className="form-group">
-              <div className="gps-info">현재 위치를 확인하고 있습니다...</div>
-            </div>
-          )}
-
-          {/* Map fallback for location */}
-          {showMap && (
-            <div className="form-group">
-              <label className="form-label">
-                위치를 자동으로 가져올 수 없습니다. 지도에서 위치를 선택해주세요.
-              </label>
-              <div className="map-container map-container-small">
-                {isLoaded ? (
-                  <GoogleMap
-                    mapContainerStyle={{ height: '100%', width: '100%' }}
-                    center={{ lat: 36.5, lng: 127.0 }}
-                    zoom={7}
-                    onClick={(e) => handleMapSelect({ lat: e.latLng.lat(), lng: e.latLng.lng() })}
-                  >
-                    {gps && <Marker position={{ lat: gps.lat, lng: gps.lng }} />}
-                  </GoogleMap>
-                ) : <div className="loading">지도 로딩 중...</div>}
+              <div className="map-container map-container-small" style={{ marginTop: 8 }}>
+                <MapView lat={gps.lat} lng={gps.lng} zoom={15} />
               </div>
+            </div>
+          )}
+
+          {/* Location button */}
+          {!gps && photo && (
+            <div className="form-group">
+              {geoLoading ? (
+                <div className="gps-info">현재 위치를 확인하고 있습니다...</div>
+              ) : (
+                <>
+                  {geoError && <div className="alert alert-error">{geoError}</div>}
+                  <button type="button" className="btn btn-primary btn-block" onClick={getLocation}>
+                    📍 현재 위치 사용
+                  </button>
+                </>
+              )}
             </div>
           )}
 

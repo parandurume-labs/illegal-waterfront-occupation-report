@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GoogleMap, useJsApiLoader, Circle } from '@react-google-maps/api';
+import { MapMultiView } from '../components/MapEmbed';
 import { useAuth } from '../context/AuthContext';
 import { apiUrl } from '../api';
 
-const GOOGLE_MAPS_API_KEY = 'AIzaSyBizRAdiOR4ePc2I2Uu2t4GSCBKajEX70o';
+// Maps use iframe embed — no interactive markers needed
 
 const STATUS_COLORS = {
   pending: '#ff9800',
@@ -38,7 +38,6 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState(null);
-  const [mapReports, setMapReports] = useState([]);
   const [listReports, setListReports] = useState([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -46,8 +45,6 @@ export default function Dashboard() {
   const [filterCategory, setFilterCategory] = useState('all');
   const [listLoading, setListLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: GOOGLE_MAPS_API_KEY });
-  const [mapRef, setMapRef] = useState(null);
 
   // Auth redirect
   useEffect(() => {
@@ -93,29 +90,6 @@ export default function Dashboard() {
       .finally(() => setListLoading(false));
   }, [token, page, filterStatus, filterCategory]);
 
-  // Fetch map reports by bounds
-  const handleBoundsChange = useCallback(
-    (bounds) => {
-      if (!token) return;
-      const params = new URLSearchParams({
-        sw_lat: bounds.south,
-        sw_lng: bounds.west,
-        ne_lat: bounds.north,
-        ne_lng: bounds.east,
-        limit: 500,
-      });
-
-      fetch(apiUrl(`/api/reports?${params}`), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          setMapReports(data.reports || data.data || []);
-        })
-        .catch(() => {});
-    },
-    [token]
-  );
 
   if (authLoading) {
     return <div className="container"><div className="loading">로딩 중...</div></div>;
@@ -156,47 +130,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Map */}
+      {/* Map Overview */}
       <div className="card">
         <h2 className="section-title">신고 지도</h2>
         <div className="map-container map-container-dashboard">
-          {isLoaded ? (
-            <GoogleMap
-              mapContainerStyle={{ height: '100%', width: '100%' }}
-              center={{ lat: 36.5, lng: 127.0 }}
-              zoom={7}
-              onLoad={(map) => setMapRef(map)}
-              onIdle={() => {
-                if (mapRef) {
-                  const b = mapRef.getBounds();
-                  if (b) {
-                    handleBoundsChange({
-                      south: b.getSouthWest().lat(),
-                      west: b.getSouthWest().lng(),
-                      north: b.getNorthEast().lat(),
-                      east: b.getNorthEast().lng(),
-                    });
-                  }
-                }
-              }}
-            >
-              {mapReports.map((r) => (
-                <Circle
-                  key={r.id}
-                  center={{ lat: r.latitude, lng: r.longitude }}
-                  radius={500}
-                  options={{
-                    fillColor: STATUS_COLORS[r.status] || '#999',
-                    fillOpacity: 0.8,
-                    strokeColor: STATUS_COLORS[r.status] || '#999',
-                    strokeWeight: 1,
-                    clickable: true,
-                  }}
-                  onClick={() => navigate(`/reports/${r.id}`)}
-                />
-              ))}
-            </GoogleMap>
-          ) : <div className="loading">지도 로딩 중...</div>}
+          <MapMultiView center={{ lat: 36.5, lng: 127.0 }} zoom={7} />
         </div>
         <div className="map-legend">
           {Object.entries(STATUS_LABELS).map(([key, label]) => (
