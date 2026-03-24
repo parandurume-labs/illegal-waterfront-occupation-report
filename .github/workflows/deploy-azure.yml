@@ -34,9 +34,6 @@ jobs:
         working-directory: ./client
         run: npx vite build
 
-      - name: Initialize database
-        run: node server/db/init.js
-
       - name: Create deployment package
         run: |
           mkdir -p deploy/client deploy/data deploy/uploads
@@ -44,22 +41,28 @@ jobs:
           cp -r client/dist deploy/client/dist
           cp package.json deploy/
           cp package-lock.json deploy/ 2>/dev/null || true
-          cp data/reports.db deploy/data/ 2>/dev/null || true
 
-      - name: Install production dependencies (Linux native)
+      - name: Install production dependencies
         working-directory: ./deploy
         run: npm ci --omit=dev
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./deploy
+      - name: Create zip
+        run: cd deploy && zip -r ../deploy.zip . -x "*.git*"
+
+      - name: Deploy via Kudu ZIP API
+        run: |
+          CREDS=$(echo '${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}' | grep -oP 'userName="\K[^"]+' | head -1)
+          PASS=$(echo '${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}' | grep -oP 'userPWD="\K[^"]+' | head -1)
+          curl -s -X POST \
+            --user "$CREDS:$PASS" \
+            --data-binary @deploy.zip \
+            -H "Content-Type: application/zip" \
+            "https://${{ env.AZURE_WEBAPP_NAME }}.scm.azurewebsites.net/api/zipdeploy?isAsync=false" \
+            -w "\nHTTP Status: %{http_code}\n"
 
       - name: Deployment summary
         run: |
           echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "- **App**: ${{ env.AZURE_WEBAPP_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node**: ${{ env.NODE_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL**: https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
