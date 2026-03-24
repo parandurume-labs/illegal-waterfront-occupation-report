@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMapEvents } from 'react-leaflet';
 import { useAuth } from '../context/AuthContext';
+import { apiUrl } from '../api';
 import 'leaflet/dist/leaflet.css';
 
 const STATUS_COLORS = {
@@ -121,7 +122,7 @@ export default function Dashboard() {
   // Fetch stats
   useEffect(() => {
     if (!token) return;
-    fetch('/api/stats', {
+    fetch(apiUrl('/api/stats'), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -143,7 +144,7 @@ export default function Dashboard() {
     if (filterStatus !== 'all') params.set('status', filterStatus);
     if (filterCategory !== 'all') params.set('category', filterCategory);
 
-    fetch(`/api/reports?${params}`, {
+    fetch(apiUrl(`/api/reports?${params}`), {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => res.json())
@@ -167,7 +168,7 @@ export default function Dashboard() {
         limit: 500,
       });
 
-      fetch(`/api/reports?${params}`, {
+      fetch(apiUrl(`/api/reports?${params}`), {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => res.json())

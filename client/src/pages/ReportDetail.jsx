@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import L from 'leaflet';
 import { useAuth } from '../context/AuthContext';
+import { apiUrl } from '../api';
 import 'leaflet/dist/leaflet.css';
 
 // Fix default marker icon
@@ -50,7 +51,7 @@ export default function ReportDetail() {
     const headers = {};
     if (token) headers.Authorization = `Bearer ${token}`;
 
-    fetch(`/api/reports/${id}`, { headers })
+    fetch(apiUrl(`/api/reports/${id}`), { headers })
       .then((r) => {
         if (!r.ok) throw new Error('신고를 찾을 수 없습니다');
         return r.json();
@@ -77,7 +78,7 @@ export default function ReportDetail() {
     try {
       // Update status if changed
       if (newStatus !== report.status) {
-        const statusRes = await fetch(`/api/reports/${id}`, {
+        const statusRes = await fetch(apiUrl(`/api/reports/${id}`), {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ export default function ReportDetail() {
 
       // Add note if provided
       if (note.trim()) {
-        const noteRes = await fetch(`/api/reports/${id}/actions`, {
+        const noteRes = await fetch(apiUrl(`/api/reports/${id}/actions`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

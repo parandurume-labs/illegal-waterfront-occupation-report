@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import exifr from 'exifr';
+import { apiUrl } from '../api';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -98,7 +99,7 @@ export default function ReportForm() {
       if (reporterName.trim()) formData.append('reporter_name', reporterName.trim());
       if (reporterContact.trim()) formData.append('reporter_contact', reporterContact.trim());
 
-      const res = await fetch('/api/reports', {
+      const res = await fetch(apiUrl('/api/reports'), {
         method: 'POST',
         body: formData,
       });

@@ -1,0 +1,16 @@
+name = "illegal-occupation-report-api"
+main = "src/index.js"
+compatibility_date = "2024-09-25"
+assets = { directory = "../client/dist" }
+
+routes = [
+  { pattern = "wor.twin4.me/*", zone_name = "twin4.me" }
+]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "illegal-occupation-report-db"
+database_id = "1b63e060-d581-4408-89d1-ae44fc64912f"
+
+[vars]
+JWT_SECRET = "change-in-production"
