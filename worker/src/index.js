@@ -69,9 +69,8 @@ export default {
         const id = parseInt(path.match(/^\/api\/reports\/(\d+)$/)[1], 10);
         response = await updateReport(request, env, id);
       }
-      // --- Static assets (SPA fallback) ---
+      // --- Static assets (handled by Workers assets binding) ---
       else if (!path.startsWith('/api/')) {
-        // Let the assets binding handle static files
         return env.ASSETS.fetch(request);
       }
       // --- API 404 ---
