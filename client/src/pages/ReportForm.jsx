@@ -45,6 +45,29 @@ export default function ReportForm() {
   const [error, setError] = useState(null);
   const fileRef = useRef(null);
 
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  const tryBrowserGeolocation = () => {
+    if (!navigator.geolocation) {
+      setShowMap(true);
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setGpsSource('browser');
+        setGeoLoading(false);
+      },
+      () => {
+        // User denied or error — show map picker
+        setShowMap(true);
+        setGeoLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   const handlePhotoChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -54,7 +77,9 @@ export default function ReportForm() {
     setGps(null);
     setGpsSource(null);
     setShowMap(false);
+    setGeoLoading(false);
 
+    // 1. Try EXIF GPS
     try {
       const exif = await exifr.gps(file);
       if (exif && exif.latitude != null && exif.longitude != null) {
@@ -66,7 +91,8 @@ export default function ReportForm() {
       // no EXIF GPS
     }
 
-    setShowMap(true);
+    // 2. Try browser Geolocation API (handles iOS Safari stripping EXIF)
+    tryBrowserGeolocation();
   };
 
   const handleMapSelect = (pos) => {
@@ -178,9 +204,16 @@ export default function ReportForm() {
                 <span>위도: {gps.lat.toFixed(6)}</span>
                 <span>경도: {gps.lng.toFixed(6)}</span>
                 <span className="gps-source">
-                  ({gpsSource === 'exif' ? '사진에서 자동 추출' : '지도에서 선택'})
+                  ({gpsSource === 'exif' ? '사진에서 자동 추출' : gpsSource === 'browser' ? '현재 위치 자동 감지' : '지도에서 선택'})
                 </span>
               </div>
+            </div>
+          )}
+
+          {/* Geolocation loading */}
+          {geoLoading && (
+            <div className="form-group">
+              <div className="gps-info">현재 위치를 확인하고 있습니다...</div>
             </div>
           )}
 
@@ -188,7 +221,7 @@ export default function ReportForm() {
           {showMap && (
             <div className="form-group">
               <label className="form-label">
-                사진에 위치 정보가 없습니다. 지도에서 위치를 선택해주세요.
+                위치를 자동으로 가져올 수 없습니다. 지도에서 위치를 선택해주세요.
               </label>
               <div className="map-container map-container-small">
                 <MapContainer
