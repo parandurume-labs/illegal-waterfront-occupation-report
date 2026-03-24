@@ -39,14 +39,14 @@ jobs:
 
       - name: Create deployment package
         run: |
-          mkdir -p deploy
+          mkdir -p deploy/client deploy/data deploy/uploads
           cp -r server deploy/
           cp -r client/dist deploy/client/dist
           cp package.json deploy/
           cp package-lock.json deploy/ 2>/dev/null || true
-          mkdir -p deploy/data deploy/uploads
+          cp data/reports.db deploy/data/ 2>/dev/null || true
 
-      - name: Install production dependencies
+      - name: Install production dependencies (Linux native)
         working-directory: ./deploy
         run: npm ci --omit=dev
 
